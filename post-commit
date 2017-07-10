@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+import collections
+import datetime
+import sys
+import subprocess
+try:
+    import tkinter
+    import tkinter.simpledialog
+    IS_TK_IMPORTED = True
+except ImportError:
+    IS_TK_IMPORTED = False
+
+from git_time_spent_tracking import parse_time, day_hour_minute_second_string, hour_minute_second_string
+
+
+# NOTE(mcsalgado): this is some old python3 version bullshit
+if sys.version_info >= (3, 3):
+    DEVNULL = subprocess.DEVNULL
+else:
+    import os
+    DEVNULL = open(os.devnull, 'wb')
+
+NOTES_MARKING = 'TIME_SPENT_TRACKING'
+QUESTION = 'Enter how long you spent on this commit: '
+
+
+class _TkinterException(Exception):
+    pass
+
+
+def default_behaviour(is_tk_available):
+    commit_info = subprocess.check_output('/usr/bin/git show -s --oneline',
+                                          shell=True).decode('utf-8')
+    while True:
+        try:
+            user_input = _ask_user(commit_info, is_tk_available)
+            delta = parse_time(user_input)
+        except ValueError:
+            continue
+        except _TkinterException:
+            # NOTE(mcsalgado): if tk fails once just don't use it anymore for
+            # the rest of the loop.
+            is_tk_available = False
+            continue
+
+        if delta > parse_time('1s'):
+            break
+        print('Invalid input. Try again.')
+
+    notes_message = '{} {}'.format(NOTES_MARKING,
+                                   day_hour_minute_second_string(delta))
+    subprocess.call('/usr/bin/git notes add -fm "{}"'.format(notes_message),
+                    shell=True)
+
+
+def _ask_user(commit_info, is_tk_available):
+    info_question = 'Commit: {}\n'.format(commit_info)
+    try:
+        current_note = subprocess.check_output('/usr/bin/git notes show',
+                                               shell=True,
+                                               stderr=DEVNULL)
+        info_question += "WARNING you'll overwrite the following note\n{}".format(current_note.decode('utf-8'))
+    except subprocess.CalledProcessError:
+        pass
+    info_question += '\n{}'.format(QUESTION)
+
+    if not is_tk_available:
+        # NOTE(mcsalgado): git steals the tty so we have to explicitly steal it back
+        sys.stdin = open('/dev/tty')
+        ret = input(info_question)
+        return ret
+
+    try:
+        tkinter.Tk().withdraw()
+        ret = tkinter.simpledialog.askstring('Time spent tracking', info_question)
+    except:
+        raise _TkinterException
+
+    # NOTE(mcsalgado): user pressed the "Cancel" button
+    if ret is None:
+        exit()
+
+    return ret
+
+
+def totals():
+    output = subprocess.check_output('/usr/bin/git log --pretty=format:"%an - %N"',
+                                     shell=True)
+
+    users = collections.defaultdict(datetime.timedelta)
+    for line in output.split(b'\n'):
+        if not line:
+            continue
+        line = line.split(b' - ')
+        name = line[0].decode('utf-8')
+        time = line[1].decode('utf-8')
+        if time and (NOTES_MARKING in time):
+            users[name] += parse_time(time.split('{} '.format(NOTES_MARKING))[1])
+
+    if len(users) == 0:
+        print("The {} notes seems to be empty.".format(NOTES_MARKING))
+        return
+
+    longest_name_length = max(len(name) for name in users.keys())
+    total = datetime.timedelta(0)
+    for name in sorted(users):
+        time_spent = users[name]
+        total += time_spent
+        print(('{:'+str(longest_name_length)+'} {:>10}').format(name, hour_minute_second_string(time_spent)))
+    print()
+    print(('{:'+str(longest_name_length)+'} {:>10}').format('', hour_minute_second_string(total)))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1 and (sys.argv[1] == 'total'):
+        totals()
+    else:
+        default_behaviour(IS_TK_IMPORTED)

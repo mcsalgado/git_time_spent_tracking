@@ -1,0 +1,15 @@
+Some git hook scripts for keeping track of how much time was spent on each
+commit.
+
+The hooks are activated automatically but if you want to edit the time spent
+note without executing `git commit` then you can do it with `git tst`.
+
+`git tst total` displays the total accumulated by each user.
+
+INSTALLATION
+Clone this repository and keep it in a definitive place. When you install it to
+each repository it will actually just link the hooks from where you cloned it
+and keep referring to it. The reason to this is so you won't need to reinstall
+the hooks to each repository again when you update the scripts.
+
+./install_hooks <TARGET_REPOSITORY_PATH>
