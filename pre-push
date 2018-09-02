@@ -4,23 +4,24 @@ import subprocess
 
 
 remotes = (remote.decode('utf-8')
-           for remote in subprocess.check_output('/usr/bin/git remote', shell=True).split(b'\n'))
+           for remote in subprocess.check_output(('/usr/bin/git',
+                                                  'remote')).split(b'\n'))
 
 for remote in remotes:
     if not remote:
         continue
 
-    subprocess.call('/usr/bin/git fetch {}'.format(remote),
-                    shell=True)
+    subprocess.call(('/usr/bin/git', 'fetch', remote))
 
     # TODO(mcsalgado): yeah, this is very roundabout...
     # doing those fetch and merge notes before pushing...
-    subprocess.call('/usr/bin/git fetch {0} refs/notes/commits:refs/notes/{0}/commits2'.format(remote),
-                    shell=True)
-    subprocess.call('/usr/bin/git notes merge -v {}/commits2'.format(remote),
-                    shell=True)
+    subprocess.call(('/usr/bin/git', 'fetch', remote,
+                     'refs/notes/commits:'
+                     'refs/notes/{}/commits2'.format(remote)))
+    subprocess.call(('/usr/bin/git', 'notes', 'merge', '-v',
+                     '{}/commits2'.format(remote)))
 
     # NOTE(mcsalgado): the --no-verify option here is important so we don't call
     # this pre-push hook again for this one push
-    subprocess.call('/usr/bin/git push --no-verify {} refs/notes/*'.format(remote),
-                    shell=True)
+    subprocess.call(('/usr/bin/git', 'push', '--no-verify', remote,
+                     'refs/notes/*'))

@@ -30,8 +30,8 @@ class _TkinterException(Exception):
 
 
 def default_behaviour(is_tk_available):
-    commit_info = subprocess.check_output('/usr/bin/git show -s --oneline',
-                                          shell=True).decode('utf-8')
+    commit_info = subprocess.check_output(('/usr/bin/git', 'show', '-s',
+                                           '--oneline')).decode('utf-8')
     while True:
         try:
             user_input = _ask_user(commit_info, is_tk_available)
@@ -50,15 +50,14 @@ def default_behaviour(is_tk_available):
 
     notes_message = '{} {}'.format(NOTES_MARKING,
                                    day_hour_minute_second_string(delta))
-    subprocess.call('/usr/bin/git notes add -fm "{}"'.format(notes_message),
-                    shell=True)
+    subprocess.call(('/usr/bin/git', 'notes', 'add', '-fm',
+                     '"{}"'.format(notes_message)))
 
 
 def _ask_user(commit_info, is_tk_available):
     info_question = 'Commit: {}\n'.format(commit_info)
     try:
-        current_note = subprocess.check_output('/usr/bin/git notes show',
-                                               shell=True,
+        current_note = subprocess.check_output(('/usr/bin/git', 'notes', 'show'),
                                                stderr=DEVNULL)
         info_question += "WARNING you'll overwrite the following note\n{}".format(current_note.decode('utf-8'))
     except subprocess.CalledProcessError:
@@ -85,8 +84,8 @@ def _ask_user(commit_info, is_tk_available):
 
 
 def totals():
-    output = subprocess.check_output('/usr/bin/git log --pretty=format:"%an - %N"',
-                                     shell=True)
+    output = subprocess.check_output(('/usr/bin/git', 'log',
+                                      '--pretty=format:"%an - %N"'))
 
     users = collections.defaultdict(datetime.timedelta)
     for line in output.split(b'\n'):
